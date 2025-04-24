@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Library Visitors Map</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #map { height: 100vh; }
+  </style>
+</head>
+<body>
+<button onclick="toggleView('pins')">Show Pins</button>
+<button onclick="toggleView('zipHeatmap')">Show Zip Code Heatmap</button>
+<div id="map"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+  const sheetURL = 'https://corsproxy.io/?https://docs.google.com/spreadsheets/d/e/2PACX-1vRReOPAKLrm2davbebtLVylsxuinAF0IxnYz-vFFZvWD34M8ftfQmcFKmwA7-tYsfGDp5Jtcsc69_IG/pub?output=csv';
+
+  let map;
+  let pinLayer;
+  let zipHeatLayer;
+
+  function getColor(d) {
+    return d > 10 ? '#800026' : d > 5 ? '#BD0026' : d > 3 ? '#E31A1C' : d > 1 ? '#FED976' : '#F0F0F0';
+  }
+
+  async function loadData() {
+    const response = await fetch(sheetURL);
+    const text = await response.text();
+    const rows = text.split('\n').slice(1); // Skip header
+    return rows
+      .map(row => row.split(','))
+      .filter(cols => cols.length >= 4 && cols[2] && cols[3])
+      .map(cols => ({
+        zip: cols[1],
+        lat: parseFloat(cols[2]),
+        lon: parseFloat(cols[3])
+      }));
+  }
+
+  async function createMap() {
+    map = L.map('map').setView([43.0702, -76.2176], 7); // Center on USA
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap & Carto',
+      subdomains: 'abcd'
+    }).addTo(map);
+
+    // Add in the county lines
+    fetch('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json')
+      .then(response => response.json())
+      .then(geojson => {
+        L.geoJSON(geojson, {
+          style: {
+            color: "#444",
+            weight: 0.5,
+            fillOpacity: 0,
+            opacity: 0.3
+          }
+        }).addTo(map);
+      });
+    
+    // Add in the state lines  
+    fetch('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json')
+      .then(response => response.json())
+      .then(stateGeo => {
+        L.geoJSON(stateGeo, {
+          style: {
+            color: "#000",
+            weight: 1,
+            opacity: 0.4,
+            fillOpacity: 0
+          }
+        }).addTo(map);
+      });
+    
+
+
+    const data = await loadData();
+    const zipCounts = {};
+
+    data.forEach(({ zip }) => {
+      zipCounts[zip] = (zipCounts[zip] || 0) + 1;
+    });
+
+    pinLayer = L.layerGroup();
+
+    data.forEach(({ zip, lat, lon }) => {
+      const count = zipCounts[zip];
+      L.circleMarker([lat, lon], {
+        radius: 4, // Keeps single pin, add "+ count" to scale with frequency
+        fillColor: '#0077cc',
+        color: '#003366',
+        fillOpacity: 0.7
+      })
+      .bindPopup(`${count} visit(s) from ${zip}`)
+      .addTo(pinLayer);
+    });
+
+    
+
+    fetch('zip_geojson.json')
+      .then(response => response.json())
+      .then(geojson => {
+        zipHeatLayer = L.geoJSON(geojson, {
+          style: feature => {
+            const zip = feature.properties.ZCTA5CE10; // Adjust if your file uses a different field
+            const count = zipCounts[zip] || 0;
+            return {
+              fillColor: getColor(count),
+              fillOpacity: 0.6,
+              color: '#222',
+              weight: 0.5
+            };
+          },
+          onEachFeature: (feature, layer) => {
+            const zip = feature.properties.ZCTA5CE10;
+            const count = zipCounts[zip] || 0;
+            if (count > 0) {
+              layer.bindPopup(`ZIP ${zip}: ${count} visit(s)`);
+            }
+          }
+        });
+      pinLayer.addTo(map);
+    });
+    
+  }
+
+  createMap();
+
+  function toggleView(mode) {
+    if (!zipHeatLayer || !pinLayer) return; // Safeguard if delay in loading
+    
+    if (mode === 'pins') {
+      map.removeLayer(zipHeatLayer);
+      map.addLayer(pinLayer);
+    } else if (mode === 'zipHeatmap') {
+      map.removeLayer(pinLayer);
+      map.addLayer(zipHeatLayer);
+    }
+  }
+</script>
+
+</body>
+</html>
