@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Library Visitors Map</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #map { height: 100vh; }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+  const sheetURL = 'https://corsproxy.io/?https://docs.google.com/spreadsheets/d/e/2PACX-1vRReOPAKLrm2davbebtLVylsxuinAF0IxnYz-vFFZvWD34M8ftfQmcFKmwA7-tYsfGDp5Jtcsc69_IG/pub?output=csv';
+
+  async function loadData() {
+    const response = await fetch(sheetURL);
+    const text = await response.text();
+    const rows = text.split('\n').slice(1); // Skip header
+    return rows
+      .map(row => row.split(','))
+      .filter(cols => cols.length >= 4 && cols[2] && cols[3])
+      .map(cols => ({
+        zip: cols[1],
+        lat: parseFloat(cols[2]),
+        lon: parseFloat(cols[3])
+      }));
+  }
+
+  async function createMap() {
+    const map = L.map('map').setView([43.0702, -76.2176], 7); // Center on USA
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap & Carto',
+      subdomains: 'abcd'
+    }).addTo(map);
+
+    // Add in the county lines
+    fetch('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json')
+      .then(response => response.json())
+      .then(geojson => {
+        L.geoJSON(geojson, {
+          style: {
+            color: "#444",
+            weight: 0.5,
+            fillOpacity: 0,
+            opacity: 0.3
+          }
+        }).addTo(map);
+      });
+    
+    // Add in the state lines  
+    fetch('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json')
+      .then(response => response.json())
+      .then(stateGeo => {
+        L.geoJSON(stateGeo, {
+          style: {
+            color: "#000",
+            weight: 1,
+            opacity: 0.4,
+            fillOpacity: 0
+          }
+        }).addTo(map);
+      });
+    
+    // Add in the zip Lines
+    fetch('zip_geojson.json')
+      .then(response => response.json())
+      .then(geojson => {
+        console.log('ZIP GeoJSON loaded:', geojson);
+      });
+
+    const data = await loadData();
+    const zipCounts = {};
+
+    data.forEach(({ zip, lat, lon }) => {
+      const key = `${lat},${lon}`;
+      zipCounts[key] = (zipCounts[key] || 0) + 1;
+    });
+
+    Object.entries(zipCounts).forEach(([coords, count]) => {
+      const [lat, lon] = coords.split(',');
+      L.circleMarker([lat, lon], {
+        radius: 4, // Keeps single pin, add "+ count" to scale with frequency
+        fillColor: '#0077cc',
+        color: '#003366',
+        fillOpacity: 0.7
+      })
+      .bindPopup(`${count} visit(s)`)
+      .addTo(map);
+    });
+  }
+
+  createMap();
+</script>
+
+</body>
+</html>
