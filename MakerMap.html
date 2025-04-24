@@ -130,7 +130,7 @@
         });
       const lastMode = localStorage.getItem('mapViewMode') || 'pins'; // logic to check the last view state
 
-      if (lastMode === 'zipHeatMap') {
+      if (lastMode === 'zipHeatmap') {
         zipHeatLayer.addTo(map);
       } else {
         pinLayer.addTo(map);
