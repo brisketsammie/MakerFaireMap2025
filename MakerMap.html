@@ -27,8 +27,9 @@
   let pinLayer;
   let zipHeatLayer;
 
-  function getColor(d) {
-    return d > 0.96 ? '#005824' : d > 0.80 ? '#238b45' : d > 0.60 ? '#41ae76' : d > 0.40 ? '#66c2a4' : d > 0.20 ? '#99d8c9' : d > 0 ? '#ccece6' : '#F0F0F0';
+  function getColor(value, max) {
+    const percent = value / max;
+    return percent > 0.80 ? '#006d2c' : percent > 0.60 ? '#2ca25f' : percent > 0.40 ? '#66c2a4' : percent > 0.20 ? '#b2e2e2' : percent > 0 ? '#edf8fb' : '#F0F0F0';
   }
 
   async function loadData() {
@@ -89,8 +90,9 @@
 
     data.forEach(({ zip }) => {
       zipCounts[zip] = (zipCounts[zip] || 0) + 1;
-      totalZips = totalZips + 1;
     });
+
+    const maxCount = Math.max(...Object.values(zipCounts));
 
     pinLayer = L.layerGroup();
 
@@ -116,7 +118,7 @@
             const zip = feature.properties.ZCTA5CE10; // Adjust if your file uses a different field
             const count = zipCounts[zip] || 0;
             return {
-              fillColor: getColor(count/totalZips),
+              fillColor: getColor(count, maxCount),
               fillOpacity: 0.6,
               color: '#222',
               weight: 0.5,
