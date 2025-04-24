@@ -84,7 +84,7 @@
 
     const data = await loadData();
     const zipCounts = {};
-    const totalZips = 0;
+    let totalZips = 0;
 
     data.forEach(({ zip }) => {
       zipCounts[zip] = (zipCounts[zip] || 0) + 1;
