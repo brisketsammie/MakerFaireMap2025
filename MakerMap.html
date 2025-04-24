@@ -128,7 +128,13 @@
             }
           }
         });
-      pinLayer.addTo(map);
+      const lastMode = localStorage.getItem('mapViewMode') || 'pins'; // logic to check the last view state
+
+      if (lastMode === 'zipHeatMap') {
+        zipHeatLayer.addTo(map);
+      } else {
+        pinLayer.addTo(map);
+      }
     });
     
   }
@@ -145,6 +151,7 @@
       map.removeLayer(pinLayer);
       map.addLayer(zipHeatLayer);
     }
+    localStorage.setItem('mapViewMode', mode); // Added to preserve the view state over refreshes
   }
   setInterval(() => {
     location.reload();
