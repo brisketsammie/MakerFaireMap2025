@@ -68,22 +68,6 @@
         }).addTo(map);
       });
     
-    // Add in the state lines  
-    fetch('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json')
-      .then(response => response.json())
-      .then(stateGeo => {
-        L.geoJSON(stateGeo, {
-          style: {
-            color: "#000",
-            weight: 1,
-            opacity: 0.4,
-            fillOpacity: 0
-          }
-        }).addTo(map);
-      });
-    
-
-
     const data = await loadData();
     const zipCounts = {};
     let totalZips = 0;
@@ -140,6 +124,20 @@
       } else {
         pinLayer.addTo(map);
       }
+    });
+
+     // Add in the state lines  
+    fetch('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json')
+      .then(response => response.json())
+      .then(stateGeo => {
+        L.geoJSON(stateGeo, {
+          style: {
+            color: "#000",
+            weight: 1,
+            opacity: 0.4,
+            fillOpacity: 0
+          }
+        }).addTo(map);
     });
     
   }
