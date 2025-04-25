@@ -119,10 +119,10 @@
             const count = zipCounts[zip] || 0;
             return {
               fillColor: getColor(count, maxCount),
-              fillOpacity: 0.6,
+              fillOpacity: 1,
               color: '#222',
               weight: 0.5,
-              opacity: 1
+              opacity: 0.3
             };
           },
           onEachFeature: (feature, layer) => {
