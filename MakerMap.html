@@ -20,7 +20,6 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-  // const sheetURL = 'https://corsproxy.io/?https://docs.google.com/spreadsheets/d/e/2PACX-1vRReOPAKLrm2davbebtLVylsxuinAF0IxnYz-vFFZvWD34M8ftfQmcFKmwA7-tYsfGDp5Jtcsc69_IG/pub?output=csv';
   const sheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0LuoEAt5aBA4fetdRj_bj0inLdIReDAMMP8mT6jHdaErZh7lmZqtDUlDmtdlwuKFQpTwILYmzHPJh/pub?output=csv';
 
   let map;
@@ -29,40 +28,42 @@
 
   function getColor(value, max) {
     const percent = value / max;
-    return percent > 0.80 ? '#006d2c' : percent > 0.60 ? '#338d5b' : percent > 0.40 ? '#66ad89' : percent > 0.20 ? '#99ccb8' : percent > 0 ? '#ccece6' : '#F0F0F0';
+    return percent > 0.80 ? '#006d2c' :
+           percent > 0.60 ? '#338d5b' :
+           percent > 0.40 ? '#66ad89' :
+           percent > 0.20 ? '#99ccb8' :
+           percent > 0    ? '#ccece6' :
+                            '#F0F0F0';
   }
 
-async function loadData() {
-  const response = await fetch(sheetURL);
-  const text = await response.text();
-  const rows = text.split('\n').slice(1); // Skip header
+  async function loadData() {
+    const response = await fetch(sheetURL);
+    const text = await response.text();
+    const rows = text.split('\n').slice(1); // Skip header
 
-  return rows
-    .map(row => row.split(','))
-    .filter(cols => cols.length >= 6 && cols[4] && cols[5]) // Require lat/lon
-    .map(cols => {
-      const country = cols[1].trim();
-      const usZip = cols[2].trim();
-      const caPostal = cols[3].trim();
-      const lat = parseFloat(cols[4]);
-      const lon = parseFloat(cols[5]);
-
-      const code = country === 'US' ? usZip : caPostal;
-
-      return { country, code, lat, lon };
-    });
-}
-
+    return rows
+      .map(row => row.split(','))
+      .filter(cols => cols.length >= 6 && cols[4] && cols[5])
+      .map(cols => {
+        const country = cols[1].trim();
+        const usZip = cols[2].trim();
+        const caPostal = cols[3].trim();
+        const lat = parseFloat(cols[4]);
+        const lon = parseFloat(cols[5]);
+        const code = country === 'US' ? usZip : caPostal;
+        return { country, code, lat, lon };
+      });
+  }
 
   async function createMap() {
-    map = L.map('map').setView([43.0702, -76.2176], 8); // Center on USA
+    map = L.map('map').setView([43.0702, -76.2176], 8); // Center on your region
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; OpenStreetMap & Carto',
       subdomains: 'abcd'
     }).addTo(map);
 
-    // Add in the county lines
+    // County lines
     fetch('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json')
       .then(response => response.json())
       .then(geojson => {
@@ -75,26 +76,23 @@ async function loadData() {
           }
         }).addTo(map);
       });
-    
+
     const data = await loadData();
     const zipCounts = {};
-    let totalZips = 0;
-
     data.forEach(({ country, code }) => {
-      const key = '${country}-${code}';
+      const key = `${country}-${code}`;
       zipCounts[key] = (zipCounts[key] || 0) + 1;
     });
 
     const maxCount = Math.max(...Object.values(zipCounts));
-
     pinLayer = L.layerGroup();
 
     data.forEach(({ country, code, lat, lon }) => {
-      const key = '${country}-$code}';
+      const key = `${country}-${code}`;
       const count = zipCounts[key];
       L.circleMarker([lat, lon], {
-        radius: 4, // Keeps single pin, add "+ count" to scale with frequency
-        fillColor: country === 'Canada" ? '#ff6600' : '#0077cc',
+        radius: 4,
+        fillColor: country === 'Canada' ? '#ff6600' : '#0077cc',
         color: '#003366',
         fillOpacity: 0.7
       })
@@ -102,15 +100,14 @@ async function loadData() {
       .addTo(pinLayer);
     });
 
-    
-
+    // ZIP heatmap
     fetch('zip_geojson.json')
       .then(response => response.json())
       .then(geojson => {
         zipHeatLayer = L.geoJSON(geojson, {
           style: feature => {
-            const zip = feature.properties.ZCTA5CE10; // Adjust if your file uses a different field
-            const key = 'US-${zip}';
+            const zip = feature.properties.ZCTA5CE10;
+            const key = `US-${zip}`;
             const count = zipCounts[key] || 0;
             return {
               fillColor: getColor(count, maxCount),
@@ -122,23 +119,23 @@ async function loadData() {
           },
           onEachFeature: (feature, layer) => {
             const zip = feature.properties.ZCTA5CE10;
-            const key = 'US-${zip}';
+            const key = `US-${zip}`;
             const count = zipCounts[key] || 0;
             if (count > 0) {
               layer.bindPopup(`ZIP ${zip}: ${count} visit(s)`);
             }
           }
         });
-      const lastMode = localStorage.getItem('mapViewMode') || 'pins'; // logic to check the last view state
 
-      if (lastMode === 'zipHeatmap') {
-        zipHeatLayer.addTo(map);
-      } else {
-        pinLayer.addTo(map);
-      }
-    });
+        const lastMode = localStorage.getItem('mapViewMode') || 'pins';
+        if (lastMode === 'zipHeatmap') {
+          zipHeatLayer.addTo(map);
+        } else {
+          pinLayer.addTo(map);
+        }
+      });
 
-     // Add in the state lines  
+    // State lines
     fetch('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json')
       .then(response => response.json())
       .then(stateGeo => {
@@ -150,15 +147,13 @@ async function loadData() {
             fillOpacity: 0
           }
         }).addTo(map);
-    });
-    
+      });
   }
 
   createMap();
 
   function toggleView(mode) {
-    if (!zipHeatLayer || !pinLayer) return; // Safeguard if delay in loading
-    
+    if (!zipHeatLayer || !pinLayer) return;
     if (mode === 'pins') {
       map.removeLayer(zipHeatLayer);
       map.addLayer(pinLayer);
@@ -166,12 +161,13 @@ async function loadData() {
       map.removeLayer(pinLayer);
       map.addLayer(zipHeatLayer);
     }
-    localStorage.setItem('mapViewMode', mode); // Added to preserve the view state over refreshes
+    localStorage.setItem('mapViewMode', mode);
   }
+
+  // Auto-refresh every 60 seconds
   setInterval(() => {
     location.reload();
   }, 60000);
-  
 </script>
 
 </body>
