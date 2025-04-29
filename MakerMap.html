@@ -21,7 +21,7 @@
 
 <script>
   // const sheetURL = 'https://corsproxy.io/?https://docs.google.com/spreadsheets/d/e/2PACX-1vRReOPAKLrm2davbebtLVylsxuinAF0IxnYz-vFFZvWD34M8ftfQmcFKmwA7-tYsfGDp5Jtcsc69_IG/pub?output=csv';
-  const sheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRReOPAKLrm2davbebtLVylsxuinAF0IxnYz-vFFZvWD34M8ftfQmcFKmwA7-tYsfGDp5Jtcsc69_IG/pub?output=csv';
+  const sheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0LuoEAt5aBA4fetdRj_bj0inLdIReDAMMP8mT6jHdaErZh7lmZqtDUlDmtdlwuKFQpTwILYmzHPJh/pub?output=csv';
 
   let map;
   let pinLayer;
@@ -32,19 +32,27 @@
     return percent > 0.80 ? '#006d2c' : percent > 0.60 ? '#338d5b' : percent > 0.40 ? '#66ad89' : percent > 0.20 ? '#99ccb8' : percent > 0 ? '#ccece6' : '#F0F0F0';
   }
 
-  async function loadData() {
-    const response = await fetch(sheetURL);
-    const text = await response.text();
-    const rows = text.split('\n').slice(1); // Skip header
-    return rows
-      .map(row => row.split(','))
-      .filter(cols => cols.length >= 4 && cols[2] && cols[3])
-      .map(cols => ({
-        zip: cols[1],
-        lat: parseFloat(cols[2]),
-        lon: parseFloat(cols[3])
-      }));
-  }
+async function loadData() {
+  const response = await fetch(sheetURL);
+  const text = await response.text();
+  const rows = text.split('\n').slice(1); // Skip header
+
+  return rows
+    .map(row => row.split(','))
+    .filter(cols => cols.length >= 6 && cols[4] && cols[5]) // Require lat/lon
+    .map(cols => {
+      const country = cols[1].trim();
+      const usZip = cols[2].trim();
+      const caPostal = cols[3].trim();
+      const lat = parseFloat(cols[4]);
+      const lon = parseFloat(cols[5]);
+
+      const code = country === 'US' ? usZip : caPostal;
+
+      return { country, code, lat, lon };
+    });
+}
+
 
   async function createMap() {
     map = L.map('map').setView([43.0702, -76.2176], 8); // Center on USA
@@ -72,23 +80,25 @@
     const zipCounts = {};
     let totalZips = 0;
 
-    data.forEach(({ zip }) => {
-      zipCounts[zip] = (zipCounts[zip] || 0) + 1;
+    data.forEach(({ country, code }) => {
+      const key = '${country}-${code}';
+      zipCounts[key] = (zipCounts[key] || 0) + 1;
     });
 
     const maxCount = Math.max(...Object.values(zipCounts));
 
     pinLayer = L.layerGroup();
 
-    data.forEach(({ zip, lat, lon }) => {
-      const count = zipCounts[zip];
+    data.forEach(({ country, code, lat, lon }) => {
+      const key = '${country}-$code}';
+      const count = zipCounts[key];
       L.circleMarker([lat, lon], {
         radius: 4, // Keeps single pin, add "+ count" to scale with frequency
-        fillColor: '#0077cc',
+        fillColor: country === 'Canada" ? '#ff6600' : '#0077cc',
         color: '#003366',
         fillOpacity: 0.7
       })
-      .bindPopup(`${count} visit(s) from ${zip}`)
+      .bindPopup(`${country} ${code}: ${count} visit(s)`)
       .addTo(pinLayer);
     });
 
@@ -100,7 +110,8 @@
         zipHeatLayer = L.geoJSON(geojson, {
           style: feature => {
             const zip = feature.properties.ZCTA5CE10; // Adjust if your file uses a different field
-            const count = zipCounts[zip] || 0;
+            const key = 'US-${zip}';
+            const count = zipCounts[key] || 0;
             return {
               fillColor: getColor(count, maxCount),
               fillOpacity: 1,
@@ -111,7 +122,8 @@
           },
           onEachFeature: (feature, layer) => {
             const zip = feature.properties.ZCTA5CE10;
-            const count = zipCounts[zip] || 0;
+            const key = 'US-${zip}';
+            const count = zipCounts[key] || 0;
             if (count > 0) {
               layer.bindPopup(`ZIP ${zip}: ${count} visit(s)`);
             }
