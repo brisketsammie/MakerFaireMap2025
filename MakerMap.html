@@ -9,11 +9,32 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     #map { height: 100vh; }
+
+    #controls {
+      position: absolute;
+      top: 60px;
+      left: 10px;
+      background: rgba(255,255,255,0.85);
+      padding: 8px;
+      border-radius: 8px;
+      z-index: 1000;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    #controls button {
+      margin: 4px 0;
+      width: 120px;
+      padding: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    
   </style>
 </head>
 <body>
-<button onclick="toggleView('pins')">Show Pins</button>
-<button onclick="toggleView('zipHeatmap')">Show Zip Code Heatmap</button>
+<div id="controls">
+  <button onclick="toggleView('pins')">Show Pins</button>
+  <button onclick="toggleView('zipHeatmap')">Show Zip Code Heatmap</button>
+</div>
 <div id="map"></div>
 
 <!-- Leaflet JS -->
